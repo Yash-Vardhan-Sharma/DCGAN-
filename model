@@ -1,0 +1,140 @@
+#GAN
+
+import torch
+from torch import nn, optim
+from torchvision import datasets, transforms
+
+# Number of channels in the training images. For color images this is 3
+nc = 1
+
+# Size of z latent vector (i.e. size of generator input)
+nz = 100
+
+# Size of feature maps in generator
+ngf = 64
+
+# Size of feature maps in discriminator
+ndf = 64
+
+class Discriminator(nn.Module):
+    
+    def __init__(self):
+        super(Discriminator,self).__init__()  
+        self.net = nn.Sequential(
+                                    # input is (nc) x 64 x 64
+                                    nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    # state size. (ndf) x 32 x 32
+                                    nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+                                    nn.BatchNorm2d(ndf * 2),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    # state size. (ndf*2) x 16 x 16
+                                    nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+                                    nn.BatchNorm2d(ndf * 4),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    # state size. (ndf*4) x 8 x 8
+                                    nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+                                    nn.BatchNorm2d(ndf * 8),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    # state size. (ndf*8) x 4 x 4
+                                    nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+                                    
+                               )
+    def forward(self,x):
+
+        # dicrimination's loss
+        x = x.to('cuda')
+
+        D_output = self.net(x)
+
+        return D_output
+
+    def loss(self, x , generator_model):
+
+        # dicrimination's loss
+        # x = x.view(-1, 64*64)
+        bs = len(x)
+        x_real = x
+        y_real = torch.full( (bs,) , 1 )
+        x_real, y_real = x_real.to(device), y_real.to(device)
+        D_output = self.forward(x_real).view(-1)
+        # print('D_out' , D_output)
+        # eps = 0.0000000000000000000001
+        D_real_loss = criterion(D_output , y_real)
+        # D_real_score = D_output
+
+        # train discriminator on fake
+        z = torch.randn(bs, 100, 1 ,1 , device=device)
+
+        
+        x_fake, y_fake = generator_model(z) , torch.full((bs,) ,0 ).to(device)
+        
+        D_output = self.forward(x_fake).view(-1)
+        # print('D_out2' , D_output)
+        # eps = 0.0000000000000000000001
+        D_fake_loss = criterion(D_output , y_fake)
+        # D_fake_score = D_output
+
+        # gradient backprop & optimize ONLY D's parameters
+        D_loss = D_real_loss + D_fake_loss  
+
+        return D_loss
+        
+
+        
+
+class Generator(nn.Module):
+
+    def __init__(self):
+        super(Generator,self).__init__()
+
+        self.net = nn.Sequential(
+            # input is Z, going into a convolution
+            nn.ConvTranspose2d( nz, ngf * 8, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(ngf * 8),
+            nn.ReLU(True),
+            # state size. (ngf*8) x 4 x 4
+            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 4),
+            nn.ReLU(True),
+            # state size. (ngf*4) x 8 x 8
+            nn.ConvTranspose2d( ngf * 4, ngf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            # state size. (ngf*2) x 16 x 16
+            nn.ConvTranspose2d( ngf * 2, ngf, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True),
+            # state size. (ngf) x 32 x 32
+            nn.ConvTranspose2d( ngf, nc, 4, 2, 1, bias=False),
+            nn.Tanh()
+            # state size. (nc) x 64 x 64
+        )
+
+        
+    def forward(self , x):
+        
+        #GENERATOR LSS
+        bs = len(x)
+        z = torch.randn(bs, nz ,1 ,1).to('cuda')
+        G_output = self.net(z)
+        return G_output
+
+    def loss(self , x , discriminator_model ):
+        
+        
+        bs = len(x)
+        z = torch.randn(bs, 100, 1 , 1 ,device=device)
+        G_output = self.forward(z)
+
+        y = torch.full( (bs, ) ,1 ).to(device)
+        
+        D_output = discriminator_model(G_output).view(-1)
+
+        G_acc = ((torch.round(D_output)==y).sum().item())*100
+        # eps = 0.0000000000000000000001
+        G_loss = criterion(D_output, y)
+
+        return G_loss , G_acc
+
+criterion = nn.BCEWithLogitsLoss()
