@@ -1,0 +1,14 @@
+batch_size = 128 
+
+# MNIST Dataset
+
+transform = transforms.Compose([transforms.Resize(64) , transforms.ToTensor()])
+
+train_dataset = datasets.MNIST(root='./mnist_data/', train=True, transform=transform, download=True)
+test_dataset = datasets.MNIST(root='./mnist_data/', train=False, transform=transform, download=False)
+
+
+# Data Loader (Input Pipeline)
+
+train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=bs, shuffle=True)
+test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=False)
