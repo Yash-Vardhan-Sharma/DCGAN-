@@ -1,0 +1,32 @@
+model1 = Discriminator().to(device)
+model2 = Generator().to(device)
+
+#optimizer 
+
+lr = 0.0002
+optimizer1 = optim.Adam(model1.parameters(), lr = lr)
+optimizer2 = optim.Adam(model2.parameters(), lr = lr)
+
+import matplotlib.pyplot as plt
+for j in range(50):
+     for i , (image , _) in enumerate(train_loader):
+
+         optimizer1.zero_grad()
+         
+         Dloss = model1.loss(image , model2)
+         Dloss.backward()
+         optimizer1.step()
+         
+         for k in range(3):
+           optimizer2.zero_grad()
+     
+           Gloss , _  = model2.loss(image , model1) 
+           Gloss.backward()
+           optimizer2.step()
+           
+           if i%10 == 0:
+             print(Dloss)
+             z = Variable(torch.randn(1, 100 , 1 , 1 ).to('cpu'))
+             output = model2(z)
+             plt.imshow(output.cpu().detach().numpy().reshape(64,64)  , cmap='Greys_r')
+             plt.show()     
